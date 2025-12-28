@@ -60,7 +60,7 @@ fun CutePetsApp(
                         }
                     },
                     icon = { Text("👤") },
-                    label = { Text("Profil") }
+                    label = { Text("Mon Espace") }
                 )
             }
         }
@@ -101,7 +101,7 @@ fun CutePetsApp(
                 FavoritesScreen(viewModel = viewModel, navController = navController)
             }
             composable("profile") {
-                ProfileScreen(navController = navController)
+                ProfileScreen(navController = navController, viewModel = viewModel)
             }
             composable("adopt_form/{petId}/{isDog}") { backStackEntry ->
                 val petId = backStackEntry.arguments?.getString("petId") ?: return@composable

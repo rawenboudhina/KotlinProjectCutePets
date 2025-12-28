@@ -11,6 +11,9 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -29,6 +32,7 @@ fun DetailScreen(pet: PetImage, viewModel: PetViewModel, onBack: () -> Unit, onA
     val isDog = pet.isDog
     val breeds by viewModel.breeds
     val info = breeds.firstOrNull { it.name.equals(pet.breedName, true) && it.isDog == isDog }
+    var showConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -40,7 +44,13 @@ fun DetailScreen(pet: PetImage, viewModel: PetViewModel, onBack: () -> Unit, onA
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite(pet) }) {
+                    IconButton(onClick = {
+                        if (isFavorite) {
+                            showConfirm = true
+                        } else {
+                            viewModel.toggleFavorite(pet)
+                        }
+                    }) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                             contentDescription = "Favori",
@@ -103,5 +113,25 @@ fun DetailScreen(pet: PetImage, viewModel: PetViewModel, onBack: () -> Unit, onA
                 }
             }
         }
+    }
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Retirer des favoris ?") },
+            text = { Text("Êtes-vous sûr de vouloir retirer cet animal de vos favoris ?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.toggleFavorite(pet)
+                    showConfirm = false
+                }) {
+                    Text("Oui")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text("Non")
+                }
+            }
+        )
     }
 }

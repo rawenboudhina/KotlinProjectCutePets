@@ -151,6 +151,9 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
                         name = it.name,
                         imageUrl = it.imageUrl,
                         description = it.description,
+                        temperament = it.temperament,
+                        origin = it.origin,
+                        lifeSpan = it.lifeSpan,
                         isDog = it.isDog
                     )
                 }

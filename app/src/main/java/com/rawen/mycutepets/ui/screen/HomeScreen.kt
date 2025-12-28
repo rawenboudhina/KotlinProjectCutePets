@@ -45,6 +45,11 @@ fun HomeScreen(viewModel: PetViewModel, navController: NavController) {
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { navController.navigate("add_animal") }) {
+                Text("+")
+            }
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -96,7 +101,7 @@ fun HomeScreen(viewModel: PetViewModel, navController: NavController) {
                         isFavorite = viewModel.isFavorite(pet.id),
                         onToggleFavorite = { viewModel.toggleFavorite(pet) },
                         onClick = { navController.navigate("detail/${pet.id}/${pet.isDog}") },
-                        onAdopt = { viewModel.adoptPet(pet) }
+                        onAdopt = { navController.navigate("adopt_form/${pet.id}/${pet.isDog}") }
                     )
                 }
 
@@ -119,6 +124,7 @@ fun PetCard(
     onClick: () -> Unit,
     onAdopt: () -> Unit
 ) {
+    var showConfirm by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -138,7 +144,13 @@ fun PetCard(
             )
 
             IconButton(
-                onClick = onToggleFavorite,
+                onClick = {
+                    if (isFavorite) {
+                        showConfirm = true
+                    } else {
+                        onToggleFavorite()
+                    }
+                },
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
             ) {
@@ -157,5 +169,25 @@ fun PetCard(
                 Text("Adopter")
             }
         }
+    }
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Retirer des favoris ?") },
+            text = { Text("Êtes-vous sûr de vouloir retirer cet animal de vos favoris ?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggleFavorite()
+                    showConfirm = false
+                }) {
+                    Text("Oui")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text("Non")
+                }
+            }
+        )
     }
 }
