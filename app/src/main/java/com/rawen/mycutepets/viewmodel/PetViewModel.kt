@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rawen.mycutepets.data.Breed
+import com.rawen.mycutepets.data.AdoptionRequest
+import com.rawen.mycutepets.data.AdoptionListing
 import com.rawen.mycutepets.data.PetImage
 import com.rawen.mycutepets.data.RetrofitClient
 import com.rawen.mycutepets.db.AppDatabase
@@ -36,6 +38,10 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
     val pagedPets: State<List<PetImage>> = _pagedPets
     private val _favorites = mutableStateOf<List<PetImage>>(emptyList())
     val favorites: State<List<PetImage>> = _favorites
+    private val _adoptionRequests = mutableStateOf<List<AdoptionRequest>>(emptyList())
+    val adoptionRequests: State<List<AdoptionRequest>> = _adoptionRequests
+    private val _adoptionListings = mutableStateOf<List<AdoptionListing>>(emptyList())
+    val adoptionListings: State<List<AdoptionListing>> = _adoptionListings
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
     private val _isDogMode = mutableStateOf(true) // true = chiens, false = chats
@@ -47,12 +53,15 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
     val pageIndex: State<Int> = _pageIndex
     private var selectedBreedId: String? = null
     private var selectedBreedName: String = "Toutes les races"
+    val currentBreedName: String get() = selectedBreedName
     private val httpClient = OkHttpClient()
     private val breedDao = db.breedDao() // Ajouté : pour accéder au DAO des breeds
 
     init {
         loadPets()
         loadFavorites()
+        loadAdoptionRequests()
+        loadAdoptionListings()
     }
 
     fun refreshBreeds() {
@@ -302,11 +311,18 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
 
     fun adoptPet(pet: PetImage) {
         viewModelScope.launch {
-            val fav = FavoritePet(pet.id, pet.url, pet.breedName, pet.isDog)
-            if (!db.favoriteDao().isFavorite(pet.id)) {
-                db.favoriteDao().insert(fav)
-            }
-            loadFavorites()
+            val req = AdoptionRequest(
+                id = "req_${currentTimeMillis()}_${md5(pet.id)}",
+                petId = pet.id,
+                breedName = pet.breedName,
+                isDog = pet.isDog,
+                applicantName = "Anonyme",
+                phone = "",
+                note = null,
+                createdAt = currentTimeMillis()
+            )
+            db.adoptionRequestDao().insert(req)
+            loadAdoptionRequests()
         }
     }
 
@@ -323,6 +339,50 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
                 breedName = it.breedName,
                 isDog = it.isDog
             ) }
+        }
+    }
+
+    private fun loadAdoptionRequests() {
+        viewModelScope.launch {
+            _adoptionRequests.value = db.adoptionRequestDao().getAll()
+        }
+    }
+
+    private fun loadAdoptionListings() {
+        viewModelScope.launch {
+            _adoptionListings.value = db.adoptionListingDao().getAll()
+        }
+    }
+
+    fun submitAdoptionRequest(petId: String, isDog: Boolean, breedName: String, name: String, phone: String, note: String?) {
+        viewModelScope.launch {
+            val req = AdoptionRequest(
+                id = "req_${currentTimeMillis()}_${md5(petId + name)}",
+                petId = petId,
+                breedName = breedName,
+                isDog = isDog,
+                applicantName = name,
+                phone = phone,
+                note = note,
+                createdAt = currentTimeMillis()
+            )
+            db.adoptionRequestDao().insert(req)
+            loadAdoptionRequests()
+        }
+    }
+
+    fun addAdoptionListing(title: String, imageUrl: String?, isDog: Boolean, breedName: String) {
+        viewModelScope.launch {
+            val listing = AdoptionListing(
+                id = "listing_${currentTimeMillis()}_${md5(title)}",
+                title = title,
+                breedName = breedName,
+                isDog = isDog,
+                imageUrl = imageUrl,
+                createdAt = currentTimeMillis()
+            )
+            db.adoptionListingDao().insert(listing)
+            loadAdoptionListings()
         }
     }
 
