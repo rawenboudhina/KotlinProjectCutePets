@@ -25,28 +25,63 @@ import androidx.compose.foundation.shape.CircleShape
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: PetViewModel, navController: NavController) {
-    val pets by viewModel.pets
+    val pets by viewModel.pagedPets
+    val allPets by viewModel.pets
     val isLoading by viewModel.isLoading
     val isDogMode by viewModel.isDogMode
+    val pageIndex by viewModel.pageIndex
+    val pageSize by viewModel.pageSize
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (isDogMode) "Chiens Adorables 🐶" else "Chats Adorables 🐱") },
+                title = { },
                 actions = {
                     IconButton(onClick = { navController.navigate("favorites") }) {
                         Icon(Icons.Default.Favorite, contentDescription = "Favoris")
+                    }
+                    TextButton(onClick = { navController.navigate(if (isDogMode) "breeds/dog" else "breeds/cat") }) {
+                        Text("Races")
                     }
                 }
             )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            Button(
-                onClick = { viewModel.togglePetType() },
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (isDogMode) "Voir les chats 🐱" else "Voir les chiens 🐶")
+                val total = allPets.size
+                val start = if (total == 0) 0 else pageIndex * pageSize + 1
+                val end = (pageIndex * pageSize + pageSize).coerceAtMost(total)
+                Text(
+                    text = "Page ${pageIndex + 1} — Images $start–$end",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { viewModel.prevPage() },
+                    enabled = viewModel.hasPrevPage()
+                ) {
+                    Text("Précédent")
+                }
+                Button(
+                    onClick = { viewModel.nextPage() },
+                    enabled = !isLoading && (viewModel.hasNextPage() || allPets.isNotEmpty())
+                ) {
+                    Text("Suivant")
+                }
             }
 
             LazyVerticalStaggeredGrid(
@@ -60,7 +95,8 @@ fun HomeScreen(viewModel: PetViewModel, navController: NavController) {
                         pet = pet,
                         isFavorite = viewModel.isFavorite(pet.id),
                         onToggleFavorite = { viewModel.toggleFavorite(pet) },
-                        onClick = { navController.navigate("detail/${pet.id}/${pet.isDog}") }
+                        onClick = { navController.navigate("detail/${pet.id}/${pet.isDog}") },
+                        onAdopt = { viewModel.adoptPet(pet) }
                     )
                 }
 
@@ -71,12 +107,6 @@ fun HomeScreen(viewModel: PetViewModel, navController: NavController) {
                 }
             }
 
-            // Chargement infini
-            LaunchedEffect(pets.size) {
-                if (!isLoading && pets.isNotEmpty()) {
-                    viewModel.loadMore()
-                }
-            }
         }
     }
 }
@@ -86,7 +116,8 @@ fun PetCard(
     pet: PetImage,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onAdopt: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -97,7 +128,7 @@ fun PetCard(
     ) {
         Box {
             AsyncImage(
-                model = pet.url,
+                model = pet.localPath ?: pet.url,
                 contentDescription = "Pet cute",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -116,6 +147,14 @@ fun PetCard(
                     contentDescription = "Favori",
                     tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
+            }
+            Button(
+                onClick = { onAdopt() },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp)
+            ) {
+                Text("Adopter")
             }
         }
     }

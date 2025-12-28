@@ -41,13 +41,28 @@ fun DetailScreen(pet: PetImage, viewModel: PetViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        AsyncImage(
-            model = pet.url,
-            contentDescription = "Pet en grand",
-            contentScale = ContentScale.Fit,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-        )
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AsyncImage(
+                model = pet.url,
+                contentDescription = "Pet en grand",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+            Button(
+                onClick = { viewModel.adoptPet(pet) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text("Adopter")
+            }
+        }
     }
 }

@@ -53,7 +53,9 @@ fun FavoritesScreen(viewModel: PetViewModel, navController: NavController) {
                     PetCard(
                         pet = pet,
                         isFavorite = true,  // Dans les favoris, c'est toujours true
-                        onToggleFavorite = { viewModel.toggleFavorite(pet) },onClick = { navController.navigate("detail/${pet.id}/${pet.isDog}") }
+                        onToggleFavorite = { viewModel.toggleFavorite(pet) },
+                        onClick = { navController.navigate("detail/${pet.id}/${pet.isDog}") },
+                        onAdopt = {}
                     )
                 }
             }
