@@ -100,6 +100,26 @@ fun DetailScreen(pet: PetImage, viewModel: PetViewModel, onBack: () -> Unit, onA
                     if (!info.description.isNullOrBlank()) {
                         Text(text = info.description ?: "", style = MaterialTheme.typography.bodyMedium)
                     }
+                    Spacer(Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (!info.origin.isNullOrBlank()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Origine", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(info.origin ?: "", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        if (!info.lifeSpan.isNullOrBlank()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Espérance de vie", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(info.lifeSpan ?: "", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    if (!info.temperament.isNullOrBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Tempérament", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(info.temperament ?: "", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(

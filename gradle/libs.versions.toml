@@ -14,7 +14,8 @@ coil = "2.7.0"
 coroutines = "1.8.1"
 ksp = "2.0.21-1.0.25"
 navigationCompose = "2.7.7"          # Version stable actuelle (compatible avec ton Compose BOM)
-lifecycleViewmodelCompose = "2.8.6"  # Version stable actuelle
+lifecycleViewmodelCompose = "2.8.6"
+material3 = "1.4.0"  # Version stable actuelle
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,6 +45,7 @@ retrofit-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref 
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
