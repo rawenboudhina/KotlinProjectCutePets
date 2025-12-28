@@ -9,9 +9,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh  // Ajouté pour refresh
+import androidx.compose.material.icons.filled.Refresh // Ajouté pour refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.rawen.mycutepets.data.Breed  // Utilise Breed (domain)
+import com.rawen.mycutepets.data.Breed // Utilise Breed (domain)
 import com.rawen.mycutepets.viewmodel.PetViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,12 +36,9 @@ fun BreedsScreen(isDog: Boolean, viewModel: PetViewModel, navController: NavCont
         viewModel.setPetType(isDog)
         viewModel.fetchBreeds(isDog)
     }
-
     val isDogMode by viewModel.isDogMode
-    val breeds by viewModel.breeds  // List<Breed>
+    val breeds by viewModel.breeds // List<Breed>
     val isLoading by viewModel.isLoadingBreeds
-    // ... autres states inchangés ...
-
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -49,15 +49,16 @@ fun BreedsScreen(isDog: Boolean, viewModel: PetViewModel, navController: NavCont
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        navController.navigate("selection") {
+                            popUpTo("selection") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { viewModel.refreshBreeds() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Rafraîchir races")
-                    }
-                }
+
             )
         }
     ) { padding ->
@@ -83,19 +84,33 @@ fun BreedsScreen(isDog: Boolean, viewModel: PetViewModel, navController: NavCont
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
+                    var searchQuery by rememberSaveable { mutableStateOf("") }
                     var selectedBreedTitle by remember { mutableStateOf<String?>(null) }
 
-                    Text(
-                        text = "Sélectionnez une race",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF5D4037),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = "Rechercher")
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Effacer")
+                                }
+                            }
+                        },
+                        placeholder = { Text("Rechercher une race") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
                     )
-
-                    val itemsList: List<Breed> = remember(breeds) {  // Typé List<Breed>
-                        listOf(Breed.allBreeds(isDogMode)) + breeds
+                    val itemsList: List<Breed> = remember(searchQuery, breeds) {
+                        val onlySpecific = breeds.filter { it.id.isNotEmpty() }
+                        if (searchQuery.isBlank()) onlySpecific
+                        else onlySpecific.filter { it.name.contains(searchQuery, ignoreCase = true) }
                     }
-
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         contentPadding = PaddingValues(8.dp),
@@ -104,7 +119,7 @@ fun BreedsScreen(isDog: Boolean, viewModel: PetViewModel, navController: NavCont
                     ) {
                         items(itemsList, key = { it.id }) { breed ->
                             BreedCard(
-                                breed = breed,  // Breed
+                                breed = breed, // Breed
                                 isDog = isDogMode,
                                 onClick = {
                                     viewModel.selectBreed(breed.id, breed.name)
@@ -124,7 +139,7 @@ fun BreedsScreen(isDog: Boolean, viewModel: PetViewModel, navController: NavCont
 
 @Composable
 fun BreedCard(
-    breed: Breed,  // Changé à Breed
+    breed: Breed,
     isDog: Boolean,
     onClick: () -> Unit
 ) {
@@ -144,9 +159,9 @@ fun BreedCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (breed.imageUrl != null) {
+            if (breed.localImagePath != null || breed.imageUrl != null) {
                 AsyncImage(
-                    model = breed.imageUrl,
+                    model = breed.localImagePath ?: breed.imageUrl, // Priorité au chemin local
                     contentDescription = breed.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

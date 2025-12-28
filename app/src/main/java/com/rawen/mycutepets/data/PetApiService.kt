@@ -41,7 +41,11 @@ data class DogResponse(
 
 data class CatBreedItem(
     val id: String,
-    val name: String
+    val name: String,
+    val description: String? = null,
+    val temperament: String? = null,
+    val origin: String? = null,
+    val life_span: String? = null
 )
 
 data class DogBreedsResponse(

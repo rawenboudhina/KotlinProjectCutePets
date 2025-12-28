@@ -10,15 +10,16 @@ import com.rawen.mycutepets.data.PetImage
 import com.rawen.mycutepets.data.RetrofitClient
 import com.rawen.mycutepets.db.AppDatabase
 import com.rawen.mycutepets.db.FavoritePet
+import com.rawen.mycutepets.data.BreedEntity // Ajoutez cet import si nécessaire
 import coil.Coil
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.lang.System.currentTimeMillis
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.lang.System.currentTimeMillis
 import java.security.MessageDigest
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,37 +27,28 @@ import okhttp3.Request
 class PetViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private var loadJob: Job? = null
-
     private val _pets = mutableStateOf<List<PetImage>>(emptyList())
     val pets: State<List<PetImage>> = _pets
-
-    private val _breeds = mutableStateOf<List<Breed>>(emptyList())  // List<Breed> pour UI
+    private val _breeds = mutableStateOf<List<Breed>>(emptyList()) // List<Breed> pour UI
     val breeds: State<List<Breed>> = _breeds
-
     val isLoadingBreeds = mutableStateOf(false)
-
     private val _pagedPets = mutableStateOf<List<PetImage>>(emptyList())
     val pagedPets: State<List<PetImage>> = _pagedPets
-
     private val _favorites = mutableStateOf<List<PetImage>>(emptyList())
     val favorites: State<List<PetImage>> = _favorites
-
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
-
     private val _isDogMode = mutableStateOf(true) // true = chiens, false = chats
     val isDogMode: State<Boolean> = _isDogMode
-
     private val _pageSize = mutableStateOf(10)
     val pageSize: State<Int> = _pageSize
-
     private var currentPage = 0
     private val _pageIndex = mutableStateOf(0)
     val pageIndex: State<Int> = _pageIndex
-
     private var selectedBreedId: String? = null
     private var selectedBreedName: String = "Toutes les races"
     private val httpClient = OkHttpClient()
+    private val breedDao = db.breedDao() // Ajouté : pour accéder au DAO des breeds
 
     init {
         loadPets()
@@ -64,7 +56,7 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshBreeds() {
-        fetchBreeds(_isDogMode.value)
+        fetchBreeds(_isDogMode.value, forceRefresh = true) // Modifié : force le refresh (clear DB + re-fetch API)
     }
 
     fun togglePetType() {
@@ -72,7 +64,6 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
         loadJob?.cancel()
         _pets.value = emptyList()
         currentPage = 0
-        _pageIndex.value = 0
         selectedBreedId = null
         selectedBreedName = "Toutes les races"
         loadPets()
@@ -85,47 +76,80 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
         currentPage = 0
         _pageIndex.value = 0
         selectedBreedId = null
-        selectedBreedName = "Toutes les races"
         loadPets()
     }
 
-    fun fetchBreeds(isDog: Boolean) {
-        setPetType(isDog)
+    fun fetchBreeds(isDog: Boolean, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             isLoadingBreeds.value = true
             try {
-                val breedsList = mutableListOf<Breed>()
-                if (isDog) {
-                    val resp = RetrofitClient.dogApi.getDogBreeds()
-                    val paths = buildList {
-                        resp.message.forEach { (breed, subs) ->
-                            if (subs.isEmpty()) add(breed)
-                            else subs.forEach { sub -> add("$breed/$sub") }
-                        }
-                    }.sorted()
-                    for (path in paths) {
-                        val name = path.split("/").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
-                        var imageUrl: String? = null
-                        try {
-                            val imgResp = RetrofitClient.dogApi.getDogImagesByBreed(path)
-                            imageUrl = imgResp.message.firstOrNull()
-                        } catch (_: Exception) {}
-                        breedsList.add(Breed(id = path, name = name, imageUrl = imageUrl, isDog = true))
-                    }
-                } else {
-                    val resp = RetrofitClient.catApi.getCatBreeds().sortedBy { it.name }
-                    for (item in resp) {
-                        var imageUrl: String? = null
-                        try {
-                            val imgResp = RetrofitClient.catApi.getCatsByBreed(item.id, limit = 1)
-                            imageUrl = imgResp.firstOrNull()?.url
-                        } catch (_: Exception) {}
-                        breedsList.add(Breed(id = item.id, name = item.name, imageUrl = imageUrl, isDog = false))
-                    }
+                if (forceRefresh) {
+                    breedDao.clearBreeds(isDog)
                 }
-                _breeds.value = breedsList
-                // Préchargement des images des races
-                prefetchImages(_breeds.value.mapNotNull { it.imageUrl })
+                var entityBreeds = breedDao.getBreeds(isDog)
+                if (entityBreeds.isEmpty()) {
+                    entityBreeds = if (isDog) {
+                        val resp = RetrofitClient.dogApi.getDogBreeds()
+                        val paths = buildList {
+                            resp.message.forEach { (breed, subs) ->
+                                if (subs.isEmpty()) add(breed)
+                                else subs.forEach { sub -> add("$breed/$sub") }
+                            }
+                        }.sorted()
+                        paths.map { path ->
+                            val name = path.split("/").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                            var imageUrl: String? = null
+                            try {
+                                val imgResp = RetrofitClient.dogApi.getDogImagesByBreed(path)
+                                imageUrl = imgResp.message.firstOrNull()
+                            } catch (_: Exception) {}
+                            BreedEntity(
+                                id = path,
+                                name = name,
+                                imageUrl = imageUrl,
+                                description = null,
+                                temperament = null,
+                                origin = null,
+                                lifeSpan = null,
+                                isDog = true
+                            )
+                        }
+                    } else {
+                        val resp = RetrofitClient.catApi.getCatBreeds().sortedBy { it.name }
+                        resp.map { item ->
+                            var imageUrl: String? = null
+                            try {
+                                val imgResp = RetrofitClient.catApi.getCatsByBreed(item.id, limit = 1)
+                                imageUrl = imgResp.firstOrNull()?.url
+                            } catch (_: Exception) {}
+                            BreedEntity(
+                                id = item.id,
+                                name = item.name,
+                                imageUrl = imageUrl,
+                                description = item.description ?: null,
+                                temperament = item.temperament ?: null,
+                                origin = item.origin ?: null,
+                                lifeSpan = item.life_span ?: null,
+                                isDog = false
+                            )
+                        }
+                    }
+                    breedDao.insertAll(entityBreeds)
+                }
+                val domainBreeds = entityBreeds.map {
+                    Breed(
+                        id = it.id,
+                        name = it.name,
+                        imageUrl = it.imageUrl,
+                        description = it.description,
+                        isDog = it.isDog
+                    )
+                }
+                val allBreed = Breed.allBreeds(isDog)
+                val fullList = listOf(allBreed) + domainBreeds
+                val withLocal = ensureLocalBreedImages(fullList)
+                _breeds.value = withLocal
+                prefetchImages(withLocal.mapNotNull { it.imageUrl })
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -134,10 +158,25 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Nouvelle fonction : Télécharge les images des races localement (similaire à ensureLocalFiles)
+    private suspend fun ensureLocalBreedImages(breeds: List<Breed>): List<Breed> {
+        return withContext(Dispatchers.IO) {
+            val dir = File(getApplication<Application>().filesDir, "breed_images")
+            if (!dir.exists()) dir.mkdirs()
+            breeds.map { breed ->
+                val url = breed.imageUrl ?: return@map breed
+                val path = downloadImageIfMissing(url, dir) // Réutilise la fonction existante
+                breed.copy(localImagePath = path?.let { "file://$it" }) // Ajoute "file://" pour Coil
+            }
+        }
+    }
 
     fun selectBreed(id: String, name: String) {
         selectedBreedId = id
         selectedBreedName = name
+        _pets.value = emptyList()
+        _pagedPets.value = emptyList()
+        _isLoading.value = true
         currentPage = 0
         _pageIndex.value = 0
         loadPets()
@@ -230,9 +269,7 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
-
                 if (_isDogMode.value != requestMode) return@launch
-
                 val localPets = ensureLocalFiles(newPets)
                 if (append) {
                     _pets.value = _pets.value + localPets
@@ -280,14 +317,12 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadFavorites() {
         viewModelScope.launch {
             val favList = db.favoriteDao().getAll()
-            _favorites.value = favList.map {
-                PetImage(
-                    id = it.id,
-                    url = it.url,
-                    breedName = it.breedName,
-                    isDog = it.isDog
-                )
-            }
+            _favorites.value = favList.map { PetImage(
+                id = it.id,
+                url = it.url,
+                breedName = it.breedName,
+                isDog = it.isDog
+            ) }
         }
     }
 
@@ -336,7 +371,7 @@ class PetViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 outFile.absolutePath
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             null
         }
     }
